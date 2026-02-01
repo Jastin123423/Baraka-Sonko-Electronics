@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Product, Order } from '../types';
 import { COLORS, CATEGORIES } from '../constants';
-import { getOrders, uploadMedia } from '../services/api';
 
 interface AdminViewProps {
   products: Product[];
@@ -28,12 +27,6 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onDeleteP
     descriptionImages: [] as string[]
   });
 
-  useEffect(() => {
-    if (activeTab === 'orders') {
-      getOrders().then(setOrders);
-    }
-  }, [activeTab]);
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -42,8 +35,18 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onDeleteP
     try {
       const urls: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        const url = await uploadMedia(files[i], type);
-        urls.push(url);
+        const data = new FormData();
+        data.append('file', files[i]);
+        
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: data
+        });
+        
+        if (res.ok) {
+          const result = await res.json();
+          urls.push(result.url);
+        }
       }
       if (type === 'image') {
         setFormData(prev => ({ ...prev, images: [...prev.images, ...urls] }));

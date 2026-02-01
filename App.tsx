@@ -16,7 +16,6 @@ import AllProductsView from './components/AllProductsView';
 import { CATEGORIES } from './constants';
 import { Product, User, Category } from './types';
 import { slugify, getProductUrl, getCategoryUrl } from './utils/routing';
-import { getProducts, getProductById, addProduct, deleteProduct } from './services/api';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -30,8 +29,11 @@ const App: React.FC = () => {
   
   const loadData = useCallback(async () => {
     try {
-      const data = await getProducts();
-      setProducts(data);
+      const response = await fetch('/api/products');
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      }
     } catch (err) {
       console.error("Initialization failed", err);
     } finally {
@@ -85,7 +87,8 @@ const App: React.FC = () => {
         let prod = products.find(p => p.id === id);
         if (!prod && !isLoading) {
           try {
-            prod = await getProductById(id);
+            const res = await fetch(`/api/products/${id}`);
+            if (res.ok) prod = await res.json();
           } catch (e) {
             setView('home');
             return;
@@ -161,13 +164,21 @@ const App: React.FC = () => {
   const [showAuth, setShowAuth] = useState(false);
 
   const handleAddProduct = async (newProduct: Product) => {
-    const saved = await addProduct(newProduct);
-    setProducts([saved, ...products]);
+    const res = await fetch('/api/products', {
+      method: 'POST',
+      body: JSON.stringify(newProduct),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+      loadData();
+    }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    await deleteProduct(id);
-    setProducts(products.filter(p => p.id !== id));
+    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setProducts(products.filter(p => p.id !== id));
+    }
   };
 
   const handleAdminAccess = () => {
