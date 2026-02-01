@@ -13,6 +13,7 @@ export interface Product {
   orderCount?: string; // For masonry view
   rating?: number; // For masonry view
   category?: string;
+  category_name?: string; // Added to match backend fields and frontend usage
   category_id?: string; // DB foreign key
   status?: 'online' | 'pending' | 'out-of-stock';
   created_at?: string;

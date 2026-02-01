@@ -35,7 +35,7 @@ const App: React.FC = () => {
         setProducts(data);
       }
     } catch (err) {
-      console.error("Initialization failed", err);
+      console.error("Failed to load products:", err);
     } finally {
       setIsLoading(false);
     }
@@ -164,20 +164,28 @@ const App: React.FC = () => {
   const [showAuth, setShowAuth] = useState(false);
 
   const handleAddProduct = async (newProduct: Product) => {
-    const res = await fetch('/api/products', {
-      method: 'POST',
-      body: JSON.stringify(newProduct),
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (res.ok) {
-      loadData();
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        body: JSON.stringify(newProduct),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        loadData();
+      }
+    } catch (err) {
+      console.error("Error adding product:", err);
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      setProducts(products.filter(p => p.id !== id));
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setProducts(products.filter(p => p.id !== id));
+      }
+    } catch (err) {
+      console.error("Error deleting product:", err);
     }
   };
 
@@ -198,7 +206,7 @@ const App: React.FC = () => {
   };
 
   const handleProductClick = (product: Product) => {
-    navigate(getProductUrl(product.category || 'electronics', product.title, product.id), 'product-detail', '', product);
+    navigate(getProductUrl(product.category_name || product.category || 'electronics', product.title, product.id), 'product-detail', '', product);
   };
 
   const openAllProducts = (title: string) => {
@@ -208,14 +216,15 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin shadow-lg"></div>
       </div>
     );
   }
 
   const filteredProducts = products.filter(p => 
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    p.category_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -318,7 +327,7 @@ const App: React.FC = () => {
               <h2 className="text-lg font-black text-gray-800 uppercase">{selectedCategory.name}</h2>
             </div>
             <ProductGrid 
-              products={products.filter(p => p.category === selectedCategory.name)} 
+              products={products.filter(p => p.category_name === selectedCategory.name || p.category === selectedCategory.name)} 
               onProductClick={handleProductClick} 
             />
           </div>
