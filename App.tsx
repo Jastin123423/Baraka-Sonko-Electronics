@@ -13,9 +13,11 @@ import AuthView from './components/AuthView';
 import ProductDetailView from './components/ProductDetailView';
 import CategoriesView from './components/CategoriesView';
 import AllProductsView from './components/AllProductsView';
+import Footer from './components/Footer';
 import { CATEGORIES } from './constants';
 import { Product, User, Category } from './types';
 import { slugify, getProductUrl, getCategoryUrl } from './utils/routing';
+import { getCurrentUser, logoutUser, getProducts } from './services/api';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -26,14 +28,13 @@ const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
   
   const loadData = useCallback(async () => {
     try {
-      const response = await fetch('/api/products');
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-      }
+      const data = await getProducts();
+      setProducts(data);
     } catch (err) {
       console.error("Failed to load products:", err);
     } finally {
@@ -43,6 +44,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    setUser(getCurrentUser());
   }, [loadData]);
 
   const handleRouteChange = useCallback(async () => {
@@ -85,18 +87,21 @@ const App: React.FC = () => {
       if (idMatch && idMatch[1]) {
         const id = idMatch[1];
         let prod = products.find(p => p.id === id);
-        if (!prod && !isLoading) {
-          try {
-            const res = await fetch(`/api/products/${id}`);
-            if (res.ok) prod = await res.json();
-          } catch (e) {
-            setView('home');
-            return;
-          }
-        }
         if (prod) {
           setSelectedProduct(prod);
           setView('product-detail');
+        } else {
+          // Attempt fetch if not in local list
+          try {
+            const res = await fetch(`/api/products/${id}`);
+            if (res.ok) {
+              const data = await res.json();
+              setSelectedProduct(data);
+              setView('product-detail');
+            } else {
+              setView('home');
+            }
+          } catch(e) { setView('home'); }
         }
       } else {
         setView('home');
@@ -105,7 +110,7 @@ const App: React.FC = () => {
       setView('home');
     }
     window.scrollTo(0, 0);
-  }, [products, listTitle, isLoading]);
+  }, [products, listTitle]);
 
   const navigate = useCallback((path: string, newView: typeof view, title?: string, prod?: Product | null, cat?: Category | null) => {
     if (title) setListTitle(title);
@@ -155,14 +160,6 @@ const App: React.FC = () => {
     navigate(getCategoryUrl(category.name), 'category-results', '', null, category);
   };
 
-  const [user, setUser] = useState<User | null>({
-    id: 'admin-1',
-    name: 'Sonko Admin',
-    email: 'admin@sonko.com'
-  });
-  
-  const [showAuth, setShowAuth] = useState(false);
-
   const handleAddProduct = async (newProduct: Product) => {
     try {
       const res = await fetch('/api/products', {
@@ -201,6 +198,7 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    logoutUser();
     setUser(null);
     navigate('/', 'home');
   };
@@ -288,14 +286,18 @@ const App: React.FC = () => {
               hasMore={visibleProducts.length < products.length}
               isLoading={isLoadingMore}
             />
+            <Footer onNavigate={(path, v) => navigate(path, v)} />
           </>
         ) : view === 'all-products' ? (
-          <AllProductsView 
-            allProducts={products} 
-            onProductClick={handleProductClick} 
-            onBack={() => window.history.back()} 
-            title={listTitle}
-          />
+          <>
+            <AllProductsView 
+              allProducts={products} 
+              onProductClick={handleProductClick} 
+              onBack={() => window.history.back()} 
+              title={listTitle}
+            />
+            <Footer onNavigate={(path, v) => navigate(path, v)} />
+          </>
         ) : view === 'search-results' ? (
           <div className="animate-fadeIn p-4">
              <div className="mb-6">
@@ -315,9 +317,13 @@ const App: React.FC = () => {
                   </div>
                 )}
              </div>
+             <Footer onNavigate={(path, v) => navigate(path, v)} />
           </div>
         ) : view === 'categories' ? (
-          <CategoriesView onCategorySelect={handleCategorySelect} />
+          <>
+            <CategoriesView onCategorySelect={handleCategorySelect} />
+            <Footer onNavigate={(path, v) => navigate(path, v)} />
+          </>
         ) : view === 'category-results' && selectedCategory ? (
           <div className="animate-fadeIn">
             <div className="bg-white px-4 py-4 flex items-center sticky top-[68px] z-30 shadow-sm border-b border-gray-100">
@@ -330,13 +336,33 @@ const App: React.FC = () => {
               products={products.filter(p => p.category_name === selectedCategory.name || p.category === selectedCategory.name)} 
               onProductClick={handleProductClick} 
             />
+            <Footer onNavigate={(path, v) => navigate(path, v)} />
           </div>
         ) : view === 'admin' ? (
-          <AdminView 
-            products={products} 
-            onAddProduct={handleAddProduct} 
-            onDeleteProduct={handleDeleteProduct} 
-          />
+          <div className="bg-white min-h-screen">
+            <div className="p-4 bg-gray-50 flex items-center justify-between border-b border-gray-100">
+                <div className="flex items-center space-x-3">
+                   <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold">
+                      {user?.name.charAt(0)}
+                   </div>
+                   <div>
+                      <p className="text-xs text-gray-400 font-medium">Logged in as</p>
+                      <p className="text-sm font-bold text-gray-800">{user?.name}</p>
+                   </div>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg active:scale-95 transition-all"
+                >
+                  LOGOUT
+                </button>
+             </div>
+             <AdminView 
+               products={products} 
+               onAddProduct={handleAddProduct} 
+               onDeleteProduct={handleDeleteProduct} 
+             />
+          </div>
         ) : (view === 'about' || view === 'privacy' || view === 'terms') ? (
           <div className="animate-fadeIn p-6 bg-white min-h-screen">
              <div className="flex items-center mb-6">
@@ -347,10 +373,13 @@ const App: React.FC = () => {
                    {view === 'about' ? 'About Us' : view === 'privacy' ? 'Privacy Policy' : 'Terms of Service'}
                 </h2>
              </div>
-             <div className="prose prose-sm text-gray-600 leading-relaxed">
-                <p>Baraka Sonko Electronics is Tanzania's premier electronics retailer.</p>
-                <p>We provide high-quality smartphones, audio systems, and appliances directly from verified manufacturers.</p>
+             <div className="prose prose-sm text-gray-600 leading-relaxed mb-12">
+                <p className="font-bold text-gray-800">Baraka Sonko Electronics is Tanzania's premier electronics retailer.</p>
+                <p>We provide high-quality smartphones, audio systems, and appliances directly from verified manufacturers. Our goal is to bring the latest technology to every household in Tanzania with reliable service and genuine products.</p>
+                <h3 className="text-gray-900 font-black mt-8 mb-2">Our Mission</h3>
+                <p>To deliver high-end electronic products at competitive prices, backed by local support and authentic warranties.</p>
              </div>
+             <Footer onNavigate={(path, v) => navigate(path, v)} />
           </div>
         ) : null}
       </main>

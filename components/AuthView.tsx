@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { COLORS } from '../constants';
 import { User } from '../types';
+import { loginUser, registerUser } from '../services/api';
 
 interface AuthViewProps {
   onLogin: (user: User) => void;
@@ -16,21 +17,26 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin, onBack }) => {
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     
-    // Simulate API delay
-    setTimeout(() => {
-      const mockUser: User = {
-        id: 'u1',
-        name: formData.name || formData.email.split('@')[0],
-        email: formData.email
-      };
-      onLogin(mockUser);
+    try {
+      let user: User;
+      if (isLogin) {
+        user = await loginUser({ email: formData.email, password: formData.password });
+      } else {
+        user = await registerUser(formData);
+      }
+      onLogin(user);
+    } catch (err: any) {
+      setError(err.message || "Authentication failed. Please try again.");
+    } finally {
       setLoading(false);
-    }, 1200);
+    }
   };
 
   return (
@@ -54,17 +60,23 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin, onBack }) => {
         <div className="flex mb-8 bg-gray-100 p-1 rounded-xl">
           <button 
             className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${isLogin ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}
-            onClick={() => setIsLogin(true)}
+            onClick={() => { setIsLogin(true); setError(null); }}
           >
             Sign In
           </button>
           <button 
             className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${!isLogin ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}
-            onClick={() => setIsLogin(false)}
+            onClick={() => { setIsLogin(false); setError(null); }}
           >
             Sign Up
           </button>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100 animate-fadeIn">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
@@ -104,12 +116,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin, onBack }) => {
               onChange={e => setFormData({...formData, password: e.target.value})}
             />
           </div>
-
-          {isLogin && (
-            <div className="text-right">
-              <button type="button" className="text-xs font-medium text-gray-400">Forgot password?</button>
-            </div>
-          )}
 
           <button 
             type="submit"

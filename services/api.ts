@@ -1,14 +1,14 @@
 
-import { Product, Category, Order } from '../types';
+import { Product, Category, Order, User } from '../types';
 
 /**
- * Toggle this to 'true' when you deploy the Worker backend provided in worker.ts
+ * Toggle this to 'true' to use the /api endpoints
  */
-const USE_REAL_BACKEND = false;
-const API_BASE_URL = 'https://api.barakasonko.com';
+const USE_REAL_BACKEND = true;
 
 const DB_KEY = 'sonko_db_products';
 const ORDERS_KEY = 'sonko_db_orders';
+const USER_KEY = 'sonko_current_user';
 
 // Fallback seed data for local mode
 const SEED_PRODUCTS: Product[] = [
@@ -61,79 +61,86 @@ const setStoredData = <T>(key: string, data: T): void => {
 // API Functions
 export async function getProducts(): Promise<Product[]> {
   if (USE_REAL_BACKEND) {
-    const response = await fetch(`${API_BASE_URL}/api/products`);
-    return response.json();
+    try {
+      const response = await fetch('/api/products');
+      if (response.ok) return response.json();
+    } catch (e) { console.warn("Backend fail, fallback to mock"); }
   }
-  
-  // Simulation Mode
-  await new Promise(r => setTimeout(r, 500));
   return getStoredData(DB_KEY, SEED_PRODUCTS);
 }
 
-export async function getProductById(id: string): Promise<Product> {
+export async function loginUser(credentials: any): Promise<User> {
   if (USE_REAL_BACKEND) {
-    const response = await fetch(`${API_BASE_URL}/api/products/${id}`);
-    return response.json();
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials)
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Login failed');
+    }
+    const user = await response.json();
+    setStoredData(USER_KEY, user);
+    return user;
   }
+  // Mock login
+  await new Promise(r => setTimeout(r, 800));
+  const user = { id: 'admin-1', name: 'Sonko Admin', email: credentials.email };
+  setStoredData(USER_KEY, user);
+  return user;
+}
 
-  const products = await getProducts();
-  const prod = products.find(p => p.id === id);
-  if (!prod) throw new Error('Product not found');
-  return prod;
+export async function registerUser(data: any): Promise<User> {
+  if (USE_REAL_BACKEND) {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Registration failed');
+    }
+    const user = await response.json();
+    setStoredData(USER_KEY, user);
+    return user;
+  }
+  // Mock register
+  await new Promise(r => setTimeout(r, 800));
+  const user = { id: Date.now().toString(), name: data.name, email: data.email };
+  setStoredData(USER_KEY, user);
+  return user;
+}
+
+export function getCurrentUser(): User | null {
+  return getStoredData(USER_KEY, null);
+}
+
+export function logoutUser(): void {
+  localStorage.removeItem(USER_KEY);
 }
 
 export async function addProduct(product: Partial<Product>): Promise<Product> {
   if (USE_REAL_BACKEND) {
-    const response = await fetch(`${API_BASE_URL}/api/products`, {
+    const response = await fetch('/api/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(product)
     });
     return response.json();
   }
-
   const products = await getProducts();
-  const newProduct = { 
-    ...product, 
-    id: Date.now().toString(),
-    created_at: new Date().toISOString()
-  } as Product;
+  const newProduct = { ...product, id: Date.now().toString(), created_at: new Date().toISOString() } as Product;
   setStoredData(DB_KEY, [newProduct, ...products]);
   return newProduct;
 }
 
 export async function deleteProduct(id: string): Promise<void> {
   if (USE_REAL_BACKEND) {
-    await fetch(`${API_BASE_URL}/api/products/${id}`, { method: 'DELETE' });
+    await fetch(`/api/products/${id}`, { method: 'DELETE' });
     return;
   }
-
   const products = await getProducts();
   setStoredData(DB_KEY, products.filter(p => p.id !== id));
-}
-
-export async function getOrders(): Promise<Order[]> {
-  if (USE_REAL_BACKEND) {
-    const response = await fetch(`${API_BASE_URL}/api/orders`);
-    return response.json();
-  }
-  return getStoredData(ORDERS_KEY, []);
-}
-
-export async function uploadMedia(file: File | string, type: 'image' | 'video'): Promise<string> {
-  if (typeof file === 'string') return file;
-
-  if (USE_REAL_BACKEND) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await fetch(`${API_BASE_URL}/api/upload`, {
-      method: 'POST',
-      body: formData
-    });
-    const result = await response.json();
-    return result.url;
-  }
-
-  // Simulation Mode: Create local URL
-  return URL.createObjectURL(file);
 }
