@@ -1,0 +1,7 @@
+name = "sonko"
+compatibility_date = "2026-02-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sonko"
+database_id = "0777b428-f6f5-4900-bbd5-d6694ccc8586"
