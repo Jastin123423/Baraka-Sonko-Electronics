@@ -13,15 +13,16 @@ import AuthView from './components/AuthView';
 import ProductDetailView from './components/ProductDetailView';
 import CategoriesView from './components/CategoriesView';
 import AllProductsView from './components/AllProductsView';
-import { MOCK_PRODUCTS, CATEGORIES } from './constants';
+import { CATEGORIES } from './constants';
 import { Product, User, Category } from './types';
+import { getProducts } from './services/api';
 
 const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [view, setView] = useState<'home' | 'admin' | 'product-detail' | 'category-results' | 'categories' | 'search-results' | 'all-products'>('home');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Infinite Scroll State
@@ -29,6 +30,10 @@ const App: React.FC = () => {
   const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const PAGE_SIZE = 8;
+
+  useEffect(() => {
+    getProducts().then(setProducts);
+  }, []);
 
   // Search Logic
   const filteredProducts = useMemo(() => {
@@ -99,11 +104,11 @@ const App: React.FC = () => {
   
   const [showAuth, setShowAuth] = useState(false);
 
-  const addProduct = (newProduct: Product) => {
+  const handleAddProduct = (newProduct: Product) => {
     setProducts([newProduct, ...products]);
   };
 
-  const deleteProduct = (id: string) => {
+  const handleDeleteProduct = (id: string) => {
     setProducts(products.filter(p => p.id !== id));
   };
 
@@ -297,8 +302,8 @@ const App: React.FC = () => {
              </div>
              <AdminView 
                products={products} 
-               onAddProduct={addProduct} 
-               onDeleteProduct={deleteProduct} 
+               onAddProduct={handleAddProduct} 
+               onDeleteProduct={handleDeleteProduct} 
              />
           </div>
         ) : null}

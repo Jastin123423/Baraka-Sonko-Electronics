@@ -13,7 +13,10 @@ export interface Product {
   orderCount?: string; // For masonry view
   rating?: number; // For masonry view
   category?: string;
+  category_id?: string; // DB foreign key
   status?: 'online' | 'pending' | 'out-of-stock';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Category {
@@ -32,14 +35,23 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  role?: 'admin' | 'user';
 }
 
 export interface Order {
   id: string;
   customer: string;
+  customer_phone?: string;
   total: number;
   status: 'processing' | 'completed' | 'canceled';
   date: string;
+  items?: OrderItem[];
+}
+
+export interface OrderItem {
+  product_id: string;
+  quantity: number;
+  price: number;
 }
 
 export interface AdminStats {

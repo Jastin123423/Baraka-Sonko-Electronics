@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product, Order } from '../types';
 import { COLORS, CATEGORIES } from '../constants';
-import { api } from '../services/api';
+import { getOrders, uploadMedia } from '../services/api';
 
 interface AdminViewProps {
   products: Product[];
@@ -30,7 +30,7 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onDeleteP
 
   useEffect(() => {
     if (activeTab === 'orders') {
-      api.getOrders().then(setOrders);
+      getOrders().then(setOrders);
     }
   }, [activeTab]);
 
@@ -42,7 +42,7 @@ const AdminView: React.FC<AdminViewProps> = ({ products, onAddProduct, onDeleteP
     try {
       const urls: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        const url = await api.uploadMedia(files[i], type);
+        const url = await uploadMedia(files[i], type);
         urls.push(url);
       }
       if (type === 'image') {
